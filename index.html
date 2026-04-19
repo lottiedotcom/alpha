@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alpha-Gal Ingredient Scanner</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -13,19 +13,26 @@
         
         <div class="tab-container">
             <button id="tabPaste" class="tab-btn active">Paste Text</button>
-            <button id="tabScan" class="tab-btn">Scan Barcode</button>
+            <button id="tabScan" class="tab-btn">Photo Scan</button>
         </div>
 
         <div id="viewPaste" class="view-section">
-            <p>Paste your product's ingredient list below.</p>
+            <p>Paste or edit your product's ingredient list below.</p>
             <textarea id="ingredientInput" placeholder="e.g., Water, Glycerin, Stearic Acid..."></textarea>
             <button id="analyzeBtn" class="primary-btn">Analyze Ingredients</button>
             <button id="clearBtn" class="secondary-btn">Clear Box</button>
         </div>
 
         <div id="viewScan" class="view-section hidden">
-            <p>Scan a product's barcode to automatically fetch and analyze its ingredients.</p>
-            <div id="reader"></div>
+            <p>Take a clear photo of the ingredient list to read the text.</p>
+            
+            <label class="custom-file-upload">
+                <input type="file" id="imageInput" accept="image/*" capture="environment">
+                📸 Open Camera / Choose Photo
+            </label>
+            
+            <div id="ocrStatus" class="status-msg hidden">Reading text... please wait.</div>
+            <img id="imagePreview" class="hidden" alt="Ingredient preview">
         </div>
         
         <div id="results" class="hidden"></div>
