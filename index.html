@@ -5,16 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alpha-Gal Ingredient Scanner</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
     <div class="container">
         <h1>Alpha-Gal Scanner</h1>
-        <p>Paste your product's ingredient list below to scan for mammalian derivatives, alpha-gal epitopes, and potential triggers.</p>
+        <p>Scan a barcode or paste your product's ingredient list below to check for mammalian derivatives and potential AGS triggers.</p>
         
+        <div id="reader"></div>
+        
+        <div class="divider"><span>OR</span></div>
+
         <textarea id="ingredientInput" placeholder="Paste ingredients here... (e.g., Water, Glycerin, Stearic Acid, Beef Tallow...)"></textarea>
         
         <button id="scanBtn">Scan Ingredients</button>
-        <button id="clearBtn" class="secondary">Clear</button>
+        <button id="clearBtn" class="secondary">Clear All</button>
         
         <div id="results" class="hidden"></div>
     </div>
