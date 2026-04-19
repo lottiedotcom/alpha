@@ -1,6 +1,6 @@
 body {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #fff0f5; /* Lavender blush / light pink background */
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: #fff0f5; /* Light pink background */
     color: #333;
     margin: 0;
     padding: 20px;
@@ -12,7 +12,7 @@ body {
     background: #ffffff;
     padding: 30px;
     border-radius: 12px;
-    border: 2px solid #ffb6c1; /* Light pink border */
+    border: 2px solid #ffb6c1;
     box-shadow: 0 4px 15px rgba(255, 105, 180, 0.15);
     width: 100%;
     max-width: 600px;
@@ -20,60 +20,62 @@ body {
 
 h1 {
     margin-top: 0;
-    color: #d81b60; /* Deep pink for heading */
+    color: #d81b60;
     text-align: center;
+    margin-bottom: 20px;
 }
 
 p {
     color: #666;
-    line-height: 1.5;
     text-align: center;
     font-size: 0.95em;
-}
-
-/* Scanner styles */
-#reader {
-    width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
     margin-bottom: 15px;
 }
 
-/* Override default scanner library button styles to match theme */
-#reader button {
-    background-color: #ff69b4;
-    color: white;
-    border: none;
-    padding: 10px 15px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    margin: 5px;
-}
-
-.divider {
+/* Tab Navigation Styles */
+.tab-container {
     display: flex;
-    align-items: center;
-    text-align: center;
-    margin: 20px 0;
-    color: #ffb6c1;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ffe4e1;
 }
 
-.divider::before, .divider::after {
-    content: '';
+.tab-btn {
     flex: 1;
-    border-bottom: 1px solid #ffb6c1;
-}
-
-.divider span {
-    padding: 0 10px;
+    background: none;
+    color: #ff69b4;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
     font-weight: bold;
-    font-size: 14px;
+    cursor: pointer;
+    transition: 0.3s;
+    border-bottom: 3px solid transparent;
 }
 
+.tab-btn:hover {
+    color: #d81b60;
+    background-color: #fff9fb;
+}
+
+.tab-btn.active {
+    color: #d81b60;
+    border-bottom: 3px solid #ff69b4;
+}
+
+/* View Sections */
+.view-section {
+    display: block;
+}
+
+.view-section.hidden {
+    display: none;
+}
+
+/* Text Area & Scanner */
 textarea {
     width: 100%;
-    height: 120px;
+    height: 140px;
     padding: 12px;
     border: 1px solid #ffb6c1;
     border-radius: 8px;
@@ -91,8 +93,17 @@ textarea:focus {
     background-color: #ffffff;
 }
 
-button {
-    background-color: #ff69b4; /* Hot pink */
+#reader {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 15px;
+    border: 1px solid #ffb6c1;
+}
+
+/* Buttons */
+.primary-btn {
+    background-color: #ff69b4;
     color: white;
     border: none;
     padding: 14px 20px;
@@ -105,19 +116,27 @@ button {
     transition: background 0.3s;
 }
 
-button:hover {
-    background-color: #ff1493; /* Deep pink */
+.primary-btn:hover {
+    background-color: #ff1493;
 }
 
-button.secondary {
-    background-color: #ffe4e1; /* Misty rose */
+.secondary-btn {
+    background-color: #ffe4e1;
     color: #d81b60;
+    border: none;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
 }
 
-button.secondary:hover {
+.secondary-btn:hover {
     background-color: #ffc0cb;
 }
 
+/* Results Box */
 #results {
     margin-top: 20px;
     padding: 20px;
@@ -125,29 +144,12 @@ button.secondary:hover {
     line-height: 1.6;
 }
 
-.hidden {
-    display: none;
-}
-
+#results.hidden { display: none; }
 .safe { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
 .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
 .danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-
-.risk-high {
-    color: #d9381e;
-    font-weight: bold;
-    margin-top: 10px;
-    border-bottom: 1px solid #f5c6cb;
-    padding-bottom: 5px;
-}
-
-.risk-possible {
-    color: #b8860b;
-    font-weight: bold;
-    margin-top: 15px;
-    border-bottom: 1px solid #ffeeba;
-    padding-bottom: 5px;
-}
-
+.risk-high { color: #d9381e; font-weight: bold; margin-top: 10px; border-bottom: 1px solid #f5c6cb; padding-bottom: 5px; }
+.risk-possible { color: #b8860b; font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ffeeba; padding-bottom: 5px; }
 ul { margin: 10px 0 0 0; padding-left: 20px; }
 .trigger-item { font-weight: bold; text-transform: capitalize; }
+
