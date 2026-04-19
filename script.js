@@ -24,19 +24,24 @@ const possibleRiskTriggers = [
     "steareth", "varnish", "vitamin d3"
 ];
 
-// TAB SWITCHING LOGIC
+// UI ELEMENTS
 const tabPaste = document.getElementById('tabPaste');
 const tabScan = document.getElementById('tabScan');
 const viewPaste = document.getElementById('viewPaste');
 const viewScan = document.getElementById('viewScan');
 const resultsDiv = document.getElementById('results');
+const imageInput = document.getElementById('imageInput');
+const ocrStatus = document.getElementById('ocrStatus');
+const imagePreview = document.getElementById('imagePreview');
+const ingredientInput = document.getElementById('ingredientInput');
 
+// TAB SWITCHING
 tabPaste.addEventListener('click', () => {
     tabPaste.classList.add('active');
     tabScan.classList.remove('active');
     viewPaste.classList.remove('hidden');
     viewScan.classList.add('hidden');
-    resultsDiv.classList.add('hidden'); // Clear results when switching tabs
+    resultsDiv.classList.add('hidden');
 });
 
 tabScan.addEventListener('click', () => {
@@ -44,15 +49,16 @@ tabScan.addEventListener('click', () => {
     tabPaste.classList.remove('active');
     viewScan.classList.remove('hidden');
     viewPaste.classList.add('hidden');
-    resultsDiv.classList.add('hidden'); // Clear results when switching tabs
+    resultsDiv.classList.add('hidden');
 });
 
 // CORE ANALYSIS LOGIC
 function analyzeIngredients(textToAnalyze) {
-    const input = textToAnalyze.toLowerCase();
+    // OCR can sometimes read commas wrong or add weird spaces, so we clean it slightly
+    const input = textToAnalyze.toLowerCase().replace(/[\n\r]/g, ' ');
     resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
 
-    if (!input.trim() || input.includes("looking up barcode")) {
+    if (!input.trim()) {
         resultsDiv.innerHTML = "<strong>Please provide a valid ingredient list.</strong>";
         resultsDiv.classList.add('warning');
         return;
@@ -61,6 +67,7 @@ function analyzeIngredients(textToAnalyze) {
     let foundHighRisk = [];
     let foundPossibleRisk = [];
 
+    // Find matches
     highRiskTriggers.forEach(trigger => {
         const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
         if (regex.test(input)) { foundHighRisk.push(trigger); }
@@ -71,9 +78,10 @@ function analyzeIngredients(textToAnalyze) {
         if (regex.test(input)) { foundPossibleRisk.push(trigger); }
     });
 
+    // Display Results
     if (foundHighRisk.length === 0 && foundPossibleRisk.length === 0) {
         resultsDiv.classList.add('safe');
-        resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Algorithms aren't perfect. Always double-check labels if highly sensitive.</small>`;
+        resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Double-check the text above to ensure the scanner didn't misread any words.</small>`;
     } else {
         let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br><br>`;
         if (foundHighRisk.length > 0) {
@@ -89,48 +97,50 @@ function analyzeIngredients(textToAnalyze) {
     }
 }
 
-// MANUAL PASTE BUTTON LOGIC
+// TEXT BUTTON LOGIC
 document.getElementById('analyzeBtn').addEventListener('click', () => {
-    const text = document.getElementById('ingredientInput').value;
-    analyzeIngredients(text);
+    analyzeIngredients(ingredientInput.value);
 });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
-    document.getElementById('ingredientInput').value = '';
+    ingredientInput.value = '';
     resultsDiv.classList.add('hidden');
 });
 
-// BARCODE SCANNER LOGIC
-function onScanSuccess(decodedText, decodedResult) {
-    html5QrcodeScanner.pause(true); // Pause scanning
-    
-    resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
-    resultsDiv.classList.add('warning');
-    resultsDiv.innerHTML = `<strong>Looking up barcode: ${decodedText}...</strong>`;
-    
-    // Query Open Food Facts API
-    fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 1 && data.product.ingredients_text) {
-                // Switch back to text view to show them the ingredients it found
-                tabPaste.click();
-                document.getElementById('ingredientInput').value = data.product.ingredients_text;
-                analyzeIngredients(data.product.ingredients_text);
-            } else {
-                resultsDiv.classList.add('danger');
-                resultsDiv.innerHTML = `<strong>Product found, but no ingredients listed in the database. Please scan something else or paste manually.</strong>`;
-            }
-            setTimeout(() => { html5QrcodeScanner.resume(); }, 3000);
-        })
-        .catch(err => {
-            resultsDiv.classList.add('danger');
-            resultsDiv.innerHTML = `<strong>Error looking up product or product not found.</strong>`;
-            setTimeout(() => { html5QrcodeScanner.resume(); }, 3000);
-        });
-}
+// PHOTO / OCR LOGIC
+imageInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-// Initialize the scanner UI
-let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150}, aspectRatio: 1.0 }, false);
-html5QrcodeScanner.render(onScanSuccess);
+    // Show image preview
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        imagePreview.src = event.target.result;
+        imagePreview.classList.remove('hidden');
+    }
+    reader.readAsDataURL(file);
 
+    // Show loading status
+    ocrStatus.classList.remove('hidden');
+    ocrStatus.innerText = "Reading text from image... please wait (this takes a few seconds).";
+
+    // Run Tesseract OCR
+    Tesseract.recognize(
+        file,
+        'eng',
+        { logger: m => console.log(m) } // Logs progress to console
+    ).then(({ data: { text } }) => {
+        ocrStatus.classList.add('hidden');
+        
+        // Put text into the text box and switch tabs
+        ingredientInput.value = text;
+        tabPaste.click(); // Switch back to the paste view so they can see/edit the text
+        
+        // Run analysis
+        analyzeIngredients(text);
+        
+    }).catch(err => {
+        console.error(err);
+        ocrStatus.innerText = "Error reading image. Please try again or type manually.";
+    });
+});
