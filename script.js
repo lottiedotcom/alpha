@@ -1,4 +1,4 @@
-// DEFINITE MAMMALS / ALPHA-GAL EPITOPE CARRIERS
+// TRIGGER LISTS
 const highRiskTriggers = [
     "adeps bovis", "adeps suillus", "beef", "bison", "boar", "bear", "bone meal", 
     "bone phosphate", "carrageenan", "casein", "caseinate", "cetuximab", "chondroitin", 
@@ -11,7 +11,6 @@ const highRiskTriggers = [
     "tallowamine", "thyroid extract", "tongue", "venison"
 ];
 
-// INGREDIENTS THAT CAN BE EITHER ANIMAL OR PLANT DERIVED
 const possibleRiskTriggers = [
     "amino acids", "ammonium stearate", "arachidonic acid", "caprylic acid", 
     "caprylic/capric triglyceride", "caprylic triglyceride", "capric triglyceride",
@@ -25,10 +24,32 @@ const possibleRiskTriggers = [
     "steareth", "varnish", "vitamin d3"
 ];
 
-// CORE SCANNING LOGIC
-function analyzeIngredients() {
-    const input = document.getElementById('ingredientInput').value.toLowerCase();
-    const resultsDiv = document.getElementById('results');
+// TAB SWITCHING LOGIC
+const tabPaste = document.getElementById('tabPaste');
+const tabScan = document.getElementById('tabScan');
+const viewPaste = document.getElementById('viewPaste');
+const viewScan = document.getElementById('viewScan');
+const resultsDiv = document.getElementById('results');
+
+tabPaste.addEventListener('click', () => {
+    tabPaste.classList.add('active');
+    tabScan.classList.remove('active');
+    viewPaste.classList.remove('hidden');
+    viewScan.classList.add('hidden');
+    resultsDiv.classList.add('hidden'); // Clear results when switching tabs
+});
+
+tabScan.addEventListener('click', () => {
+    tabScan.classList.add('active');
+    tabPaste.classList.remove('active');
+    viewScan.classList.remove('hidden');
+    viewPaste.classList.add('hidden');
+    resultsDiv.classList.add('hidden'); // Clear results when switching tabs
+});
+
+// CORE ANALYSIS LOGIC
+function analyzeIngredients(textToAnalyze) {
+    const input = textToAnalyze.toLowerCase();
     resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
 
     if (!input.trim() || input.includes("looking up barcode")) {
@@ -52,71 +73,64 @@ function analyzeIngredients() {
 
     if (foundHighRisk.length === 0 && foundPossibleRisk.length === 0) {
         resultsDiv.classList.add('safe');
-        resultsDiv.innerHTML = `
-            <strong>✅ No Known Triggers Found!</strong><br>
-            <small>Algorithms aren't perfect. Always double-check labels if you are highly sensitive.</small>
-        `;
+        resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Algorithms aren't perfect. Always double-check labels if highly sensitive.</small>`;
     } else {
         let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br><br>`;
-        
         if (foundHighRisk.length > 0) {
             resultsDiv.classList.add('danger');
-            html += `<div class="risk-high">🛑 DEFINITE AGS TRIGGERS (Mammalian / Alpha-Gal):</div>`;
-            html += `<ul>${foundHighRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
+            html += `<div class="risk-high">🛑 DEFINITE AGS TRIGGERS:</div><ul>${foundHighRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
         } else {
             resultsDiv.classList.add('warning');
         }
-
         if (foundPossibleRisk.length > 0) {
-            html += `<div class="risk-possible">⚠️ POSSIBLE TRIGGERS (Check if plant-based or synthetic):</div>`;
-            html += `<ul>${foundPossibleRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
+            html += `<div class="risk-possible">⚠️ POSSIBLE TRIGGERS (Verify source):</div><ul>${foundPossibleRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
         }
         resultsDiv.innerHTML = html;
     }
 }
 
+// MANUAL PASTE BUTTON LOGIC
+document.getElementById('analyzeBtn').addEventListener('click', () => {
+    const text = document.getElementById('ingredientInput').value;
+    analyzeIngredients(text);
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('ingredientInput').value = '';
+    resultsDiv.classList.add('hidden');
+});
+
 // BARCODE SCANNER LOGIC
 function onScanSuccess(decodedText, decodedResult) {
-    // Prevent continuous scanning while looking up the current barcode
-    html5QrcodeScanner.pause(true);
+    html5QrcodeScanner.pause(true); // Pause scanning
     
-    document.getElementById('ingredientInput').value = "Looking up barcode: " + decodedText + "...";
+    resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
+    resultsDiv.classList.add('warning');
+    resultsDiv.innerHTML = `<strong>Looking up barcode: ${decodedText}...</strong>`;
     
     // Query Open Food Facts API
     fetch(`https://world.openfoodfacts.org/api/v0/product/${decodedText}.json`)
         .then(response => response.json())
         .then(data => {
             if (data.status === 1 && data.product.ingredients_text) {
+                // Switch back to text view to show them the ingredients it found
+                tabPaste.click();
                 document.getElementById('ingredientInput').value = data.product.ingredients_text;
-                analyzeIngredients(); // Auto-scan the retrieved ingredients
+                analyzeIngredients(data.product.ingredients_text);
             } else {
-                document.getElementById('ingredientInput').value = "";
-                alert("Product found, but no ingredients are listed in the database. Please paste them manually.");
+                resultsDiv.classList.add('danger');
+                resultsDiv.innerHTML = `<strong>Product found, but no ingredients listed in the database. Please scan something else or paste manually.</strong>`;
             }
-            // Resume scanner after 3 seconds
             setTimeout(() => { html5QrcodeScanner.resume(); }, 3000);
         })
         .catch(err => {
-            document.getElementById('ingredientInput').value = "";
-            alert("Error looking up product or product not found in database.");
-            html5QrcodeScanner.resume();
+            resultsDiv.classList.add('danger');
+            resultsDiv.innerHTML = `<strong>Error looking up product or product not found.</strong>`;
+            setTimeout(() => { html5QrcodeScanner.resume(); }, 3000);
         });
 }
 
-// Initialize the barcode scanner UI
-let html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader", 
-    { fps: 10, qrbox: {width: 250, height: 150}, aspectRatio: 1.0 }, 
-    /* verbose= */ false
-);
+// Initialize the scanner UI
+let html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150}, aspectRatio: 1.0 }, false);
 html5QrcodeScanner.render(onScanSuccess);
 
-// EVENT LISTENERS
-document.getElementById('scanBtn').addEventListener('click', analyzeIngredients);
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-    document.getElementById('ingredientInput').value = '';
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.classList.add('hidden');
-    resultsDiv.innerHTML = '';
-});
