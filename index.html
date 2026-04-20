@@ -155,12 +155,41 @@
 
         .secondary-btn:hover { background-color: #ffc0cb; }
 
-        /* Results */
+        /* Results & Highlighting Styles */
         #results { margin-top: 20px; padding: 20px; border-radius: 8px; line-height: 1.6; }
         #results.hidden { display: none; }
         .safe { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         .danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .highlighted-paragraph {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-family: inherit;
+            line-height: 1.8;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .highlight-high {
+            background-color: #ffccd5;
+            color: #b00020;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid #ff4d6d;
+        }
+
+        .highlight-possible {
+            background-color: #ffeeba;
+            color: #856404;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 4px;
+            border: 1px solid #ffc107;
+        }
+
         .risk-high { color: #d9381e; font-weight: bold; margin-top: 10px; border-bottom: 1px solid #f5c6cb; padding-bottom: 5px; }
         .risk-possible { color: #b8860b; font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ffeeba; padding-bottom: 5px; }
         ul { margin: 10px 0 0 0; padding-left: 20px; }
@@ -199,7 +228,6 @@
     </div>
 
     <script>
-        // We wrap everything in this to ensure the HTML loads before the JavaScript tries to attach to the buttons
         document.addEventListener("DOMContentLoaded", function() {
             
             // TRIGGER LISTS
@@ -259,11 +287,11 @@
             });
 
             // CORE ANALYSIS LOGIC
-            function analyzeIngredients(textToAnalyze) {
-                const input = textToAnalyze.toLowerCase().replace(/[\n\r]/g, ' ');
+            function analyzeIngredients(originalText) {
+                const inputForScanning = originalText.toLowerCase().replace(/[\n\r]/g, ' ');
                 resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
 
-                if (!input.trim()) {
+                if (!inputForScanning.trim()) {
                     resultsDiv.innerHTML = "<strong>Please provide a valid ingredient list.</strong>";
                     resultsDiv.classList.add('warning');
                     return;
@@ -272,21 +300,43 @@
                 let foundHighRisk = [];
                 let foundPossibleRisk = [];
 
+                // 1. Find the triggers
                 highRiskTriggers.forEach(trigger => {
                     const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
-                    if (regex.test(input)) { foundHighRisk.push(trigger); }
+                    if (regex.test(inputForScanning)) { foundHighRisk.push(trigger); }
                 });
 
                 possibleRiskTriggers.forEach(trigger => {
                     const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
-                    if (regex.test(input)) { foundPossibleRisk.push(trigger); }
+                    if (regex.test(inputForScanning)) { foundPossibleRisk.push(trigger); }
                 });
 
+                // 2. Generate the Highlighted Text Paragraph
+                let highlightedText = originalText;
+                
+                // Combine triggers and sort by length (longest first) so words like "stearic acid" get highlighted before "acid"
+                let allFoundTriggers = [
+                    ...foundHighRisk.map(t => ({ word: t, type: 'high' })),
+                    ...foundPossibleRisk.map(t => ({ word: t, type: 'possible' }))
+                ].sort((a, b) => b.word.length - a.word.length);
+
+                allFoundTriggers.forEach(triggerObj => {
+                    // This regex finds the word, preserves its original capitalization via $1, and wraps it in a colored span
+                    const regex = new RegExp('\\b(' + triggerObj.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'gi');
+                    const className = triggerObj.type === 'high' ? 'highlight-high' : 'highlight-possible';
+                    highlightedText = highlightedText.replace(regex, `<span class="${className}">$1</span>`);
+                });
+
+                // 3. Display Results
                 if (foundHighRisk.length === 0 && foundPossibleRisk.length === 0) {
                     resultsDiv.classList.add('safe');
                     resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Double-check the text above to ensure the scanner didn't misread any words.</small>`;
                 } else {
-                    let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br><br>`;
+                    let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br>`;
+                    
+                    // Add the highlighted paragraph box
+                    html += `<div class="highlighted-paragraph">${highlightedText}</div>`;
+
                     if (foundHighRisk.length > 0) {
                         resultsDiv.classList.add('danger');
                         html += `<div class="risk-high">🛑 DEFINITE AGS TRIGGERS:</div><ul>${foundHighRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
@@ -315,7 +365,6 @@
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // Show image preview
                 const reader = new FileReader();
                 reader.onload = function(event) {
                     imagePreview.src = event.target.result;
@@ -326,7 +375,6 @@
                 ocrStatus.classList.remove('hidden');
                 ocrStatus.innerText = "Reading text from image... please wait (this takes a few seconds).";
 
-                // Check if Tesseract loaded correctly (sometimes local networks block the CDN)
                 if (typeof Tesseract === 'undefined') {
                     ocrStatus.innerText = "Error: Text-reader library failed to load. Are you connected to the internet?";
                     return;
@@ -350,3 +398,4 @@
     </script>
 </body>
 </html>
+
