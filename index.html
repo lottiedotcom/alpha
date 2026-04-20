@@ -4,8 +4,168 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alpha-Gal Ingredient Scanner</title>
-    <link rel="stylesheet" href="styles.css">
+    
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #fff0f5; 
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #ffb6c1;
+            box-shadow: 0 4px 15px rgba(255, 105, 180, 0.15);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #d81b60;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        p {
+            color: #666;
+            text-align: center;
+            font-size: 0.95em;
+            margin-bottom: 15px;
+        }
+
+        /* Tab Navigation */
+        .tab-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ffe4e1;
+        }
+
+        .tab-btn {
+            flex: 1;
+            background: none;
+            color: #ff69b4;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn:hover { color: #d81b60; background-color: #fff9fb; }
+        .tab-btn.active { color: #d81b60; border-bottom: 3px solid #ff69b4; }
+
+        /* Views */
+        .view-section { display: block; }
+        .view-section.hidden { display: none; }
+
+        /* Input Areas */
+        textarea {
+            width: 100%;
+            height: 140px;
+            padding: 12px;
+            border: 1px solid #ffb6c1;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            resize: vertical;
+            font-family: inherit;
+            background-color: #fff9fb;
+        }
+
+        textarea:focus { outline: none; border-color: #ff69b4; background-color: #ffffff; }
+
+        /* Custom File Upload Button */
+        input[type="file"] { display: none; }
+
+        .custom-file-upload {
+            display: block;
+            background-color: #ff69b4;
+            color: white;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: background 0.3s;
+            margin-bottom: 15px;
+        }
+
+        .custom-file-upload:hover { background-color: #ff1493; }
+
+        /* Status & Image Preview */
+        .status-msg {
+            text-align: center;
+            font-weight: bold;
+            color: #d81b60;
+            margin-bottom: 15px;
+            background: #ffe4e1;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        #imagePreview {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ffb6c1;
+            margin-bottom: 15px;
+        }
+
+        /* Buttons */
+        .primary-btn {
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+
+        .primary-btn:hover { background-color: #ff1493; }
+
+        .secondary-btn {
+            background-color: #ffe4e1;
+            color: #d81b60;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .secondary-btn:hover { background-color: #ffc0cb; }
+
+        /* Results */
+        #results { margin-top: 20px; padding: 20px; border-radius: 8px; line-height: 1.6; }
+        #results.hidden { display: none; }
+        .safe { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .danger { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .risk-high { color: #d9381e; font-weight: bold; margin-top: 10px; border-bottom: 1px solid #f5c6cb; padding-bottom: 5px; }
+        .risk-possible { color: #b8860b; font-weight: bold; margin-top: 15px; border-bottom: 1px solid #ffeeba; padding-bottom: 5px; }
+        ul { margin: 10px 0 0 0; padding-left: 20px; }
+        .trigger-item { font-weight: bold; text-transform: capitalize; }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -38,6 +198,155 @@
         <div id="results" class="hidden"></div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        // We wrap everything in this to ensure the HTML loads before the JavaScript tries to attach to the buttons
+        document.addEventListener("DOMContentLoaded", function() {
+            
+            // TRIGGER LISTS
+            const highRiskTriggers = [
+                "adeps bovis", "adeps suillus", "beef", "bison", "boar", "bear", "bone meal", 
+                "bone phosphate", "carrageenan", "casein", "caseinate", "cetuximab", "chondroitin", 
+                "collagen", "dairy", "milk", "butter", "cheese", "cream", "yogurt", "whey", 
+                "elastin", "elk", "gelatin", "ghee", "goat", "heart", "heparin", "kangaroo", 
+                "keratin", "kidney", "lactose", "lamb", "lanolin", "laneth", "lard", "liver", 
+                "llama", "mallow", "mammal fat", "moose", "mutton", "organ meat", "organ meats", 
+                "pancreatin", "pancrelipase", "pepperoni", "pork", "bacon", "ham", "sausage", 
+                "rabbit", "sodium tallowate", "sour cream", "suet", "tallow", "tallowate", 
+                "tallowamine", "thyroid extract", "tongue", "venison"
+            ];
+
+            const possibleRiskTriggers = [
+                "amino acids", "ammonium stearate", "arachidonic acid", "caprylic acid", 
+                "caprylic/capric triglyceride", "caprylic triglyceride", "capric triglyceride",
+                "cetearyl alcohol", "cetyl alcohol", "confectioner's glaze", "cysteine", 
+                "l-cysteine", "diglycerides", "glycerin", "glycerol", "glycerides", 
+                "hydrolyzed animal protein", "hydrolyzed protein", "isostearic acid", 
+                "lactic acid", "magnesium stearate", "monoglycerides", "myristic acid", 
+                "natural flavor", "natural flavoring", "oleic acid", "oleyl alcohol", 
+                "palmitic acid", "peg-8 stearate", "peg-100 stearate", "polysorbate", 
+                "rennet", "sodium stearate", "squalene", "stearic acid", "stearate", 
+                "steareth", "varnish", "vitamin d3"
+            ];
+
+            // UI ELEMENTS
+            const tabPaste = document.getElementById('tabPaste');
+            const tabScan = document.getElementById('tabScan');
+            const viewPaste = document.getElementById('viewPaste');
+            const viewScan = document.getElementById('viewScan');
+            const resultsDiv = document.getElementById('results');
+            const imageInput = document.getElementById('imageInput');
+            const ocrStatus = document.getElementById('ocrStatus');
+            const imagePreview = document.getElementById('imagePreview');
+            const ingredientInput = document.getElementById('ingredientInput');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const clearBtn = document.getElementById('clearBtn');
+
+            // TAB SWITCHING
+            tabPaste.addEventListener('click', () => {
+                tabPaste.classList.add('active');
+                tabScan.classList.remove('active');
+                viewPaste.classList.remove('hidden');
+                viewScan.classList.add('hidden');
+                resultsDiv.classList.add('hidden');
+            });
+
+            tabScan.addEventListener('click', () => {
+                tabScan.classList.add('active');
+                tabPaste.classList.remove('active');
+                viewScan.classList.remove('hidden');
+                viewPaste.classList.add('hidden');
+                resultsDiv.classList.add('hidden');
+            });
+
+            // CORE ANALYSIS LOGIC
+            function analyzeIngredients(textToAnalyze) {
+                const input = textToAnalyze.toLowerCase().replace(/[\n\r]/g, ' ');
+                resultsDiv.classList.remove('hidden', 'safe', 'warning', 'danger');
+
+                if (!input.trim()) {
+                    resultsDiv.innerHTML = "<strong>Please provide a valid ingredient list.</strong>";
+                    resultsDiv.classList.add('warning');
+                    return;
+                }
+
+                let foundHighRisk = [];
+                let foundPossibleRisk = [];
+
+                highRiskTriggers.forEach(trigger => {
+                    const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+                    if (regex.test(input)) { foundHighRisk.push(trigger); }
+                });
+
+                possibleRiskTriggers.forEach(trigger => {
+                    const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+                    if (regex.test(input)) { foundPossibleRisk.push(trigger); }
+                });
+
+                if (foundHighRisk.length === 0 && foundPossibleRisk.length === 0) {
+                    resultsDiv.classList.add('safe');
+                    resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Double-check the text above to ensure the scanner didn't misread any words.</small>`;
+                } else {
+                    let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br><br>`;
+                    if (foundHighRisk.length > 0) {
+                        resultsDiv.classList.add('danger');
+                        html += `<div class="risk-high">🛑 DEFINITE AGS TRIGGERS:</div><ul>${foundHighRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
+                    } else {
+                        resultsDiv.classList.add('warning');
+                    }
+                    if (foundPossibleRisk.length > 0) {
+                        html += `<div class="risk-possible">⚠️ POSSIBLE TRIGGERS (Verify source):</div><ul>${foundPossibleRisk.map(t => `<li><span class="trigger-item">${t}</span></li>`).join('')}</ul>`;
+                    }
+                    resultsDiv.innerHTML = html;
+                }
+            }
+
+            // TEXT BUTTON LOGIC
+            analyzeBtn.addEventListener('click', () => {
+                analyzeIngredients(ingredientInput.value);
+            });
+
+            clearBtn.addEventListener('click', () => {
+                ingredientInput.value = '';
+                resultsDiv.classList.add('hidden');
+            });
+
+            // PHOTO / OCR LOGIC
+            imageInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                // Show image preview
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    imagePreview.src = event.target.result;
+                    imagePreview.classList.remove('hidden');
+                }
+                reader.readAsDataURL(file);
+
+                ocrStatus.classList.remove('hidden');
+                ocrStatus.innerText = "Reading text from image... please wait (this takes a few seconds).";
+
+                // Check if Tesseract loaded correctly (sometimes local networks block the CDN)
+                if (typeof Tesseract === 'undefined') {
+                    ocrStatus.innerText = "Error: Text-reader library failed to load. Are you connected to the internet?";
+                    return;
+                }
+
+                Tesseract.recognize(
+                    file,
+                    'eng',
+                    { logger: m => console.log(m) }
+                ).then(({ data: { text } }) => {
+                    ocrStatus.classList.add('hidden');
+                    ingredientInput.value = text;
+                    tabPaste.click(); 
+                    analyzeIngredients(text);
+                }).catch(err => {
+                    console.error(err);
+                    ocrStatus.innerText = "Error reading image. Please try again or type manually.";
+                });
+            });
+        });
+    </script>
 </body>
 </html>
