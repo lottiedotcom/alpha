@@ -6,6 +6,9 @@
     <title>Alpha-Gal Ingredient Scanner</title>
     
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
     <style>
         body {
@@ -106,7 +109,18 @@
 
         .custom-file-upload:hover { background-color: #ff1493; }
 
-        /* Status & Image Preview */
+        /* Cropper & Image Preview */
+        #cropperWrapper {
+            margin-bottom: 15px;
+            max-height: 400px; /* Keeps the image from taking up the entire screen */
+            overflow: hidden;
+        }
+
+        #imagePreview {
+            display: block;
+            max-width: 100%;
+        }
+
         .status-msg {
             text-align: center;
             font-weight: bold;
@@ -115,13 +129,6 @@
             background: #ffe4e1;
             padding: 10px;
             border-radius: 8px;
-        }
-
-        #imagePreview {
-            width: 100%;
-            border-radius: 8px;
-            border: 1px solid #ffb6c1;
-            margin-bottom: 15px;
         }
 
         /* Buttons */
@@ -213,15 +220,21 @@
         </div>
 
         <div id="viewScan" class="view-section hidden">
-            <p>Take a clear photo of the ingredient list to read the text.</p>
+            <p>Take a photo, then <b>draw a box</b> closely around the ingredients.</p>
             
             <label class="custom-file-upload">
                 <input type="file" id="imageInput" accept="image/*" capture="environment">
                 📸 Open Camera / Choose Photo
             </label>
             
+            <div id="cropArea" class="hidden">
+                <div id="cropperWrapper">
+                    <img id="imagePreview" alt="Crop area">
+                </div>
+                <button id="doCropBtn" class="primary-btn">✂️ Crop & Read Text</button>
+            </div>
+            
             <div id="ocrStatus" class="status-msg hidden">Reading text... please wait.</div>
-            <img id="imagePreview" class="hidden" alt="Ingredient preview">
         </div>
         
         <div id="results" class="hidden"></div>
@@ -262,12 +275,18 @@
             const viewPaste = document.getElementById('viewPaste');
             const viewScan = document.getElementById('viewScan');
             const resultsDiv = document.getElementById('results');
+            
             const imageInput = document.getElementById('imageInput');
             const ocrStatus = document.getElementById('ocrStatus');
             const imagePreview = document.getElementById('imagePreview');
+            const cropArea = document.getElementById('cropArea');
+            const doCropBtn = document.getElementById('doCropBtn');
+            
             const ingredientInput = document.getElementById('ingredientInput');
             const analyzeBtn = document.getElementById('analyzeBtn');
             const clearBtn = document.getElementById('clearBtn');
+
+            let cropper = null; // Variable to hold the cropping tool
 
             // TAB SWITCHING
             tabPaste.addEventListener('click', () => {
@@ -300,7 +319,6 @@
                 let foundHighRisk = [];
                 let foundPossibleRisk = [];
 
-                // 1. Find the triggers
                 highRiskTriggers.forEach(trigger => {
                     const regex = new RegExp('\\b' + trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
                     if (regex.test(inputForScanning)) { foundHighRisk.push(trigger); }
@@ -311,30 +329,24 @@
                     if (regex.test(inputForScanning)) { foundPossibleRisk.push(trigger); }
                 });
 
-                // 2. Generate the Highlighted Text Paragraph
                 let highlightedText = originalText;
                 
-                // Combine triggers and sort by length (longest first) so words like "stearic acid" get highlighted before "acid"
                 let allFoundTriggers = [
                     ...foundHighRisk.map(t => ({ word: t, type: 'high' })),
                     ...foundPossibleRisk.map(t => ({ word: t, type: 'possible' }))
                 ].sort((a, b) => b.word.length - a.word.length);
 
                 allFoundTriggers.forEach(triggerObj => {
-                    // This regex finds the word, preserves its original capitalization via $1, and wraps it in a colored span
                     const regex = new RegExp('\\b(' + triggerObj.word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')\\b', 'gi');
                     const className = triggerObj.type === 'high' ? 'highlight-high' : 'highlight-possible';
                     highlightedText = highlightedText.replace(regex, `<span class="${className}">$1</span>`);
                 });
 
-                // 3. Display Results
                 if (foundHighRisk.length === 0 && foundPossibleRisk.length === 0) {
                     resultsDiv.classList.add('safe');
                     resultsDiv.innerHTML = `<strong>✅ No Known Triggers Found!</strong><br><small>Double-check the text above to ensure the scanner didn't misread any words.</small>`;
                 } else {
                     let html = `<strong>⚠️ Alert: Flagged Ingredients Detected</strong><br>`;
-                    
-                    // Add the highlighted paragraph box
                     html += `<div class="highlighted-paragraph">${highlightedText}</div>`;
 
                     if (foundHighRisk.length > 0) {
@@ -360,40 +372,78 @@
                 resultsDiv.classList.add('hidden');
             });
 
-            // PHOTO / OCR LOGIC
+            // PHOTO SELECTION & CROPPER INITIALIZATION
             imageInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (!file) return;
 
                 const reader = new FileReader();
                 reader.onload = function(event) {
+                    // Show the crop area
+                    cropArea.classList.remove('hidden');
+                    
+                    // If a cropper already exists from a previous photo, destroy it to make room for the new one
+                    if (cropper) {
+                        cropper.destroy();
+                    }
+
+                    // Set the image
                     imagePreview.src = event.target.result;
-                    imagePreview.classList.remove('hidden');
+                    
+                    // Initialize the new cropper box
+                    cropper = new Cropper(imagePreview, {
+                        viewMode: 1, // Keeps the crop box strictly inside the image bounds
+                        dragMode: 'crop',
+                        autoCropArea: 0.8, // Automatically start with a box covering 80% of the image
+                        restore: false,
+                        guides: true,
+                        center: true,
+                        highlight: false,
+                        cropBoxMovable: true,
+                        cropBoxResizable: true,
+                        toggleDragModeOnDblclick: false,
+                    });
                 }
                 reader.readAsDataURL(file);
+            });
 
-                ocrStatus.classList.remove('hidden');
-                ocrStatus.innerText = "Reading text from image... please wait (this takes a few seconds).";
+            // "CROP AND READ TEXT" BUTTON LOGIC
+            doCropBtn.addEventListener('click', () => {
+                if (!cropper) return; // Failsafe
 
-                if (typeof Tesseract === 'undefined') {
-                    ocrStatus.innerText = "Error: Text-reader library failed to load. Are you connected to the internet?";
+                // Get the cropped image data directly from the cropper
+                const croppedCanvas = cropper.getCroppedCanvas();
+                
+                if (!croppedCanvas) {
+                    alert("Could not crop the image. Please try again.");
                     return;
                 }
 
+                // Hide the cropper UI and show loading status
+                cropArea.classList.add('hidden');
+                ocrStatus.classList.remove('hidden');
+                ocrStatus.innerText = "Reading text from your cropped box... please wait.";
+
+                // Send the cropped canvas to Tesseract
                 Tesseract.recognize(
-                    file,
+                    croppedCanvas,
                     'eng',
                     { logger: m => console.log(m) }
                 ).then(({ data: { text } }) => {
                     ocrStatus.classList.add('hidden');
+                    
+                    // Dump the read text into the box and switch over to the text view
                     ingredientInput.value = text;
                     tabPaste.click(); 
+                    
+                    // Automatically run the highlighting script
                     analyzeIngredients(text);
                 }).catch(err => {
                     console.error(err);
                     ocrStatus.innerText = "Error reading image. Please try again or type manually.";
                 });
             });
+
         });
     </script>
 </body>
