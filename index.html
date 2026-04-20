@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -246,11 +245,11 @@
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             
-            // TRIGGER LISTS
+            // TRIGGER LISTS (Updated with Milkfat)
             const highRiskTriggers = [
                 "adeps bovis", "adeps suillus", "beef", "bison", "boar", "bear", "bone meal", 
                 "bone phosphate", "carrageenan", "casein", "caseinate", "cetuximab", "chondroitin", 
-                "collagen", "dairy", "milk", "butter", "cheese", "cream", "yogurt", "whey", 
+                "collagen", "dairy", "milk", "milkfat", "milk fat", "butter", "cheese", "cream", "yogurt", "whey", 
                 "elastin", "elk", "gelatin", "ghee", "goat", "heart", "heparin", "kangaroo", 
                 "keratin", "kidney", "lactose", "lamb", "lanolin", "laneth", "lard", "liver", 
                 "llama", "mallow", "mammal fat", "moose", "mutton", "organ meat", "organ meats", 
@@ -376,7 +375,7 @@
             });
 
 
-            // NEW HELPER FUNCTION: COMPRESS IMAGE
+            // HELPER FUNCTION: COMPRESS IMAGE
             function compressImage(base64Str, maxWidth, maxHeight) {
                 return new Promise((resolve) => {
                     let img = new Image();
@@ -421,7 +420,7 @@
                 const reader = new FileReader();
                 reader.onload = async function(event) {
                     try {
-                        // NEW STEPS: Compress the large photo before passing to Cropper.js
+                        // Compress the large photo before passing to Cropper.js
                         const originalBase64 = event.target.result;
                         const compressedBase64 = await compressImage(originalBase64, 2000, 2000);
                         
@@ -432,16 +431,16 @@
                         cropArea.classList.remove('hidden');
                         ocrStatus.classList.add('hidden');
                         
-                        // If a cropper already exists from a previous photo, destroy it to make room for the new one
+                        // If a cropper already exists from a previous photo, destroy it
                         if (cropper) {
                             cropper.destroy();
                         }
 
                         // Initialize the new cropper box
                         cropper = new Cropper(imagePreview, {
-                            viewMode: 1, // Keeps the crop box strictly inside the image bounds
+                            viewMode: 1, 
                             dragMode: 'crop',
-                            autoCropArea: 0.8, // Automatically start with a box covering 80% of the image
+                            autoCropArea: 0.8, 
                             restore: false,
                             guides: true,
                             center: true,
@@ -458,7 +457,7 @@
                 reader.readAsDataURL(file);
             });
 
-            // "CROP AND READ TEXT" BUTTON LOGIC (Remains similar)
+            // "CROP AND READ TEXT" BUTTON LOGIC
             doCropBtn.addEventListener('click', () => {
                 if (!cropper) return; // Failsafe
 
@@ -499,3 +498,4 @@
     </script>
 </body>
 </html>
+
